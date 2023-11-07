@@ -2,6 +2,7 @@
 
 import requests
 import logging
+import os
 
 class PhishingCollector:
     def __init__(self, phishing_url):
@@ -19,12 +20,14 @@ class PhishingCollector:
 
     def save_urls(self, urls, filename):
         directory = 'data/raw'  # Adjust the path to your 'data/raw' directory
+        if not os.path.exists(directory):
+            os.makedirs(directory)
         filepath = f'{directory}/{filename}'
         try:
-            with open(filepath, 'w') as file:
+            with open(filepath, 'a') as file:  # Open the file in append mode
                 for url in urls:
                     file.write(url + '\n')
-            logging.info(f'Saved URLs to {filepath}')
+            logging.info(f'Appended URLs to {filepath}')
         except Exception as e:
-            logging.error(f'Failed to save URLs to {filepath}: {e}')
+            logging.error(f'Failed to append URLs to {filepath}: {e}')
 

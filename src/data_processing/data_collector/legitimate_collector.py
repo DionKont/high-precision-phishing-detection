@@ -30,7 +30,11 @@ class LegitimateCollector:
                 for i, line in enumerate(file):
                     if self.limit is not None and i >= self.limit:
                         break  # Stop reading if the limit is reached
-                    urls.append(line.strip().split(',')[1])
+                    domain = line.strip().split(',')[1]
+                    # Ensure each URL starts with 'https://'
+                    url = f'https://{domain}' if not domain.startswith('http://') and not domain.startswith(
+                        'https://') else domain
+                    urls.append(url)
 
             # Clean up the zip file and the extracted CSV
             os.remove(zip_path)
