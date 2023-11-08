@@ -2,6 +2,7 @@
 
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from url_feature_extractor import extract_url_features  # Assuming this is a standalone function now
 from html_content_feature_extractor import HTMLContentFeatureExtractor
 
@@ -12,6 +13,7 @@ class FeatureExtractor:
     def __init__(self, phishing_urls_file, legitimate_urls_file):
         self.phishing_urls_file = phishing_urls_file
         self.legitimate_urls_file = legitimate_urls_file
+        self.max_workers = 30  # Set the number of worker threads
 
     def read_urls_from_file(self, file_path):
         with open(file_path, 'r') as file:
@@ -31,25 +33,39 @@ class FeatureExtractor:
 
         # Extract features using the specific feature extractor
         features = []
-        for url_data in all_data:  # url_data is a list containing [url, label]
-            url = url_data[0]  # The URL is the first element
-            label = url_data[1] if len(
-                url_data) > 1 else '0'  # The label is the second element, default to '0' if missing
-            url_features = extract_url_features(url)
-            html_features = HTMLContentFeatureExtractor.extract_html_features(url)
 
-            # Check if response_time is -1 and skip this datapoint if so
-            if html_features['response_time'] != -1:
-                combined_features = {**url_features, **html_features,
-                                     'label': int(label)}  # Add the label to the features
-                features.append(combined_features)
-            else:
-                logging.info(f"Skipping URL due to failed response: {url}")
+        # Use ThreadPoolExecutor to parallelize the extraction
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            # Create a future for each URL feature extraction
+            future_to_url = {executor.submit(self.extract_features_for_url, url_data): url_data for url_data in all_data}
 
+            for future in as_completed(future_to_url):
+                url_data = future_to_url[future]
+                try:
+                    url_features = future.result()
+                    if url_features:  # If features were successfully extracted
+                        features.append(url_features)
+                except Exception as exc:
+                    logging.error(f"{url_data[0]} generated an exception: {exc}")
+
+        print(f'Number of features extracted: {len(features)}')
         # Save features to JSON
         self.save_features_to_json(features, 'data/raw/features.json')
-
         logging.info("Features extracted and saved successfully.")
+
+    def extract_features_for_url(self, url_data):
+        url = url_data[0]
+        label = url_data[1] if len(url_data) > 1 else '0'
+        url_features = extract_url_features(url)
+        html_features = HTMLContentFeatureExtractor.extract_html_features(url)
+
+        # Check if response_time is -1 and skip this datapoint if so
+        if html_features['response_time'] != -1:
+            combined_features = {**url_features, **html_features, 'label': int(label)}
+            return combined_features
+        else:
+            logging.info(f"Skipping URL due to failed response: {url}")
+            return None
 
 
 def main():

@@ -28,6 +28,8 @@ class DataPreprocessor:
             # Engineer features
             engineer = FeatureEngineer(data)
             data = engineer.encode_features()
+            # Balance the dataset
+            data = self.balance_classes(data)
             # Save processed data
             self.save_processed_data(data)
         except Exception as e:
@@ -46,6 +48,28 @@ class DataPreprocessor:
         csv_output_path = os.path.join(self.output_folder, 'processed_data.csv')
         data.to_csv(csv_output_path, index=False)
         self.logger.info(f"Processed data saved to {csv_output_path}")
+
+    def balance_classes(self, data):
+        # Separate majority and minority classes
+        data_minority = data[data.label == 1]
+        data_majority = data[data.label == 0]
+
+        # Find the number of instances in the smaller class
+        minority_class_len = len(data_minority)
+        majority_class_len = len(data_majority)
+
+        # Use the smaller number to sample from the larger class
+        balanced_majority_class = data_majority.sample(minority_class_len)
+
+        # Concatenate the minority class with the downsampled majority class
+        data_balanced = pd.concat([data_minority, balanced_majority_class])
+
+        # Shuffle the dataset to prevent the model from learning any order
+        data_balanced = data_balanced.sample(frac=1).reset_index(drop=True)
+
+        self.logger.info(f"Balanced dataset with {len(data_balanced)} instances per class.")
+
+        return data_balanced
 
 if __name__ == "__main__":
     input_file = 'data/raw/features.json'  # Replace with your actual input file path
