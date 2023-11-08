@@ -39,8 +39,8 @@ class LegitimateCollector:
             # Clean up the zip file and the extracted CSV
             os.remove(zip_path)
             os.remove(csv_path)
-
-            return urls
+            labeled_urls = [(url, 0) for url in urls]  # 0 indicates legitimate
+            return labeled_urls
 
         except requests.exceptions.HTTPError as errh:
             logging.error(f"Http Error: {errh}")
@@ -57,15 +57,15 @@ class LegitimateCollector:
 
         return []
 
-    def save_urls(self, urls, filename):
+    def save_urls(self, labeled_urls, filename):
         directory = 'data/raw'
         if not os.path.exists(directory):
             os.makedirs(directory)
         filepath = os.path.join(directory, filename)
         try:
             with open(filepath, 'w') as file:
-                for url in urls:
-                    file.write(url + '\n')
-            logging.info(f'Saved URLs to {filepath}')
+                for url, label in labeled_urls:
+                    file.write(f"{url},{label}\n")  # Save as comma-separated values
+            logging.info(f'Saved labeled URLs to {filepath}')
         except Exception as e:
-            logging.error(f'Failed to save URLs to {filepath}: {e}')
+            logging.error(f'Failed to save labeled URLs to {filepath}: {e}')
